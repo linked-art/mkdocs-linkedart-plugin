@@ -2,14 +2,17 @@ from mkdocs.config import config_options, Config
 from mkdocs.plugins import BasePlugin
 
 import re
+import os
+import sys
+import json
+import uuid
+import urllib
+import requests
 
 import cromulent
 from cromulent import model, vocab
 from cromulent.model import factory
 from collections import OrderedDict
-
-import uuid
-import urllib
 
 vocab.add_art_setter()
 vocab.add_attribute_assignment_check()
@@ -33,6 +36,13 @@ class LinkedArtPlugin(BasePlugin):
         self.aat_hash = {}
         self.prop_hash = {}
         self.class_hash = {}
+        self.aat_labels = {}
+
+        self.aat_re = re.compile("aat:([0-9]+)")
+        self.ctxt_eg_re = re.compile('(&quot;|")([0-9A-Za-z_|:]+)(&quot;|")')
+        self.ctxt_text_re = re.compile("`([A-Za-z_]+)`")
+        self.context = factory.context_json['@context']
+
         self.class_styles = {
             "HumanMadeObject": "object",
             "Place": "place",
@@ -90,6 +100,20 @@ class LinkedArtPlugin(BasePlugin):
         self.aat_hash = {}
         self.prop_hash = {}
         self.class_hash = {}
+
+        fh = open('scripts/aat_labels.json')
+        data = fh.read()
+        fh.close()
+        self.aat_labels = json.loads(data)
+
+        fn = os.path.join(os.path.dirname(cromulent.__file__), 'data')
+        fn += "/crm-profile.json"
+        fh = open(fn)
+        d = fh.read()
+        fh.close()
+        self.linked_art_profile = json.loads(d)
+
+
 
     def on_post_build(self, config):
         # Write the index
@@ -250,7 +274,7 @@ title: Index of Classes, Properties, Authorities
     def uri_to_label(self, uri):
         if uri.startswith('http://vocab.getty.edu/'):
             uri = uri.replace('http://vocab.getty.edu/', '')
-            uri = uri.replace('/', '&colon;')
+            uri = uri.replace('/', ':')
         elif uri.startswith('https://linked.art/example/'):
             uri = uri.replace('https://linked.art/example/', '')
             uri = uri.replace('/', '')
@@ -320,7 +344,86 @@ title: Index of Classes, Properties, Authorities
                         mermaid.append("class %s_%s literal;" % (currid, n))
             return (currid, curr_int, id_map)
 
+
+    def fetch_aat_label(self, what):
+        url = what.replace("aat:", "http://vocab.getty.edu/aat/")
+        url += ".jsonld"
+        try:
+            resp = requests.get(url)
+            aatjs = json.loads(resp.text)
+        except:
+            return ""
+        prefs = aatjs[0]["http://www.w3.org/2004/02/skos/core#prefLabel"]
+        label = ""
+        for p in prefs:
+            if '@language' in p and p['@language'] in ['en', 'en-us']:
+                label = p['@value']
+                self.aat_labels[what] = label
+                break
+        return label
+
+    def do_aatlabel(self, source):        
+        full = source.group(0)
+        data = source.group(1)
+        label = self.aat_labels.get(full) or self.fetch_aat_label(full)
+        label = label.replace('"', '')
+        return '<a href="http://vocab.getty.edu/aat/%s" data-ot="%s" data-ot-title="AAT Term" data-ot-fixed="true" class="aat">aat:%s</a>' % (data, label, data)
+
+    def do_ctxt_eg(self, source):
+        full = source.group(0)
+        try:
+            data = source.group(2)
+        except:
+            data = full
+        return self.do_ctxt_label(full, data)
+
+    def do_ctxt_text(self, source):
+        full = source.group(0)
+        try:
+            data = source.group(1)
+        except:
+            data = full
+        return self.do_ctxt_label(full, data)
+
+    def do_ctxt_label(self, full, data):
+        pidx = data.find("|")
+        if pidx > -1:
+            # Hack to include it in the serialization
+            ttl = "Core Linked Data Term"
+            col = ""
+            crm = data[pidx+1:]
+            full = full.replace("|%s" % crm, '')
+        elif data in self.context:
+            # So it's CRM or added extension
+            # get the full from 
+            defn = self.context[data]
+            if not type(defn) == dict:
+                # type --> @type
+                crm = defn
+                ttl = "Core Linked Data Term"
+                col = ""
+            else:
+                crm = self.context[data]['@id']
+                term = crm.replace('crm:', '')
+                if term in self.linked_art_profile:
+                    okay = self.linked_art_profile[term]
+                    if okay == 0 or (type(okay) == list and okay[0] == 0):
+                        ttl = "Extension Linked Data Term"
+                        col = 'style="color: orange"'               
+                    else:
+                        ttl = "Core Linked Data Term"
+                        col = ""
+                else:
+                    return full
+        else:
+            return full
+        val = '<abbr %s data-ot="%s" data-ot-title="%s" data-ot-fixed="true">%s</abbr>' % (col, crm, ttl, full)
+        return val
+
     def on_page_markdown(self, markdown, page, config, files):
+
+        # _aat:nnn_ to hyperlink and tooltips
+        markdown = self.aat_re.sub(self.do_aatlabel, markdown)
 
         # Do linked art extension here
         matcher = re.compile("^(```\s*crom\s*$(.+?)^```)$", re.M | re.U | re.S)
@@ -328,8 +431,11 @@ title: Index of Classes, Properties, Authorities
         for h in hits:
             eg = self.generate_example(h[1], page)
             markdown = markdown.replace(h[0], eg)
-        return markdown
 
+        # json-ld context tooltips
+        markdown = self.ctxt_eg_re.sub(self.do_ctxt_eg, markdown)
+        markdown = self.ctxt_text_re.sub(self.do_ctxt_text, markdown)
+        return markdown
 
 
     #def on_serve(self, server, config, builder):
