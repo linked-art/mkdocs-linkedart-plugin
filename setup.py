@@ -7,10 +7,10 @@ setup(
     long_description='',
     keywords='mkdocs',
     url='',
-    author='Your Name',
-    author_email='your email',
+    author='Rob Sanderson',
+    author_email='azaroth42@gmail.com',
     license='MIT',
-    python_requires='>=2.7',
+    python_requires='>=3.5',
     install_requires=[
         'mkdocs>=1.0.4'
     ],
@@ -21,7 +21,6 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3 :: Only',
-        'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7'
