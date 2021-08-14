@@ -1,5 +1,8 @@
 from mkdocs.config import config_options, Config
 from mkdocs.plugins import BasePlugin
+from mkdocs.structure.files import Files, File
+from mkdocs.structure.pages import Page
+from mkdocs.commands.build import _populate_page, _build_page
 
 import re
 import os
@@ -26,6 +29,8 @@ class LinkedArtPlugin(BasePlugin):
         ('baseDir', config_options.Type(str, default='docs/example')),
         ('contextUrl', config_options.Type(str, default='https://linked.art/ns/v1/linked-art.json')),
         ('autoIdType', config_options.Type(str, default='int-per-segment')),
+        ('linkAAT', config_options.Type(bool, default=True)),
+
     )
 
     def __init__(self):
@@ -39,7 +44,7 @@ class LinkedArtPlugin(BasePlugin):
         self.aat_labels = {}
 
         self.aat_re = re.compile("aat:([0-9]+)")
-        self.ctxt_eg_re = re.compile('(&quot;|")([0-9A-Za-z_|:]+)(&quot;|")')
+        self.ctxt_eg_re = re.compile('(?<!`)(&quot;|")([0-9A-Za-z_|:]+)(&quot;|")')
         self.ctxt_text_re = re.compile("`([A-Za-z_]+)`")
         self.context = factory.context_json['@context']
 
@@ -101,10 +106,14 @@ class LinkedArtPlugin(BasePlugin):
         self.prop_hash = {}
         self.class_hash = {}
 
-        fh = open('scripts/aat_labels.json')
-        data = fh.read()
-        fh.close()
-        self.aat_labels = json.loads(data)
+        self.nav_cache = None
+        self.env_cache = None
+
+        if self.config['linkAAT']:
+            fh = open('scripts/aat_labels.json')
+            data = fh.read()
+            fh.close()
+            self.aat_labels = json.loads(data)
 
         fn = os.path.join(os.path.dirname(cromulent.__file__), 'data')
         fn += "/crm-profile.json"
@@ -164,12 +173,16 @@ title: Index of Classes, Properties, Authorities
             lines.append("    * %s" % vstr)
 
         out = '\n'.join(lines)
-        fh = open('docs/model/example_index.md', 'w')
+        fh = open('temp/example_index.md', 'w')
         fh.write(out)
         fh.close()
 
-        #fl = File('/model/example_index.md', config['docs_dir'], config['site_dir'], config['use_directory_urls'])
-
+        # build a single page, per mkdocs.commands.build
+        fl = File('example_index.md', 'temp', config['site_dir'], config['use_directory_urls'])
+        files = Files([fl])
+        pg = Page("Example Index", fl, config)
+        _populate_page(fl.page, config, [fl], False)
+        _build_page(fl.page, config, [fl], self.nav_cache, self.env_cache, True)
 
         return
 
@@ -364,6 +377,8 @@ title: Index of Classes, Properties, Authorities
 
     def do_aatlabel(self, source):        
         full = source.group(0)
+        if not self.config['linkAAT']:
+            return full
         data = source.group(1)
         label = self.aat_labels.get(full) or self.fetch_aat_label(full)
         label = label.replace('"', '')
@@ -445,11 +460,15 @@ title: Index of Classes, Properties, Authorities
     #def on_files(self, files, config):
     #    return files
 
-    #def on_nav(self, nav, config, files):
-    #    return nav
+    def on_nav(self, nav, config, files):
+        # Cache the build nav for later
+        self.nav_cache = nav
+        return nav
 
-    #def on_env(self, env, config, files):
-    #    return env
+    def on_env(self, env, config, files):
+        # Cache env for later too
+        self.env_cache = env
+        return env
     
     #def on_config(self, config):
     #    return config
