@@ -173,12 +173,12 @@ title: Index of Classes, Properties, Authorities
             lines.append("    * %s" % vstr)
 
         out = '\n'.join(lines)
-        fh = open('temp/example_index.md', 'w')
+        fh = open('temp/model/example_index.md', 'w')
         fh.write(out)
         fh.close()
 
         # build a single page, per mkdocs.commands.build
-        fl = File('example_index.md', 'temp', config['site_dir'], config['use_directory_urls'])
+        fl = File('/model/example_index.md', 'temp', config['site_dir'], config['use_directory_urls'])
         files = Files([fl])
         pg = Page("Example Index", fl, config)
         _populate_page(fl.page, config, [fl], False)
