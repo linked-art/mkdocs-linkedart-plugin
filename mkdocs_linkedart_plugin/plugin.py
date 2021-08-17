@@ -173,16 +173,19 @@ title: Index of Classes, Properties, Authorities
             lines.append("    * %s" % vstr)
 
         out = '\n'.join(lines)
-        fh = open('temp/model/example_index.md', 'w')
-        fh.write(out)
-        fh.close()
+        try:
+            fh = open('temp/model/example_index.md', 'w')
+            fh.write(out)
+            fh.close()
 
-        # build a single page, per mkdocs.commands.build
-        fl = File('model/example_index.md', 'temp', config['site_dir'], config['use_directory_urls'])
-        files = Files([fl])
-        pg = Page("Example Index", fl, config)
-        _populate_page(fl.page, config, [fl], False)
-        _build_page(fl.page, config, [fl], self.nav_cache, self.env_cache, True)
+            # build a single page, per mkdocs.commands.build
+            fl = File('model/example_index.md', 'temp', config['site_dir'], config['use_directory_urls'])
+            files = Files([fl])
+            pg = Page("Example Index", fl, config)
+            _populate_page(fl.page, config, [fl], False)
+            _build_page(fl.page, config, [fl], self.nav_cache, self.env_cache, True)
+        except:
+            print("Failed to write / build example page")
 
         return
 
