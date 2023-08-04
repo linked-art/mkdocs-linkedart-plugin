@@ -369,14 +369,18 @@ title: Index of Classes, Properties, Authorities
             aatjs = json.loads(resp.text)
         except:
             return ""
-        prefs = aatjs[0]["http://www.w3.org/2004/02/skos/core#prefLabel"]
-        label = ""
-        for p in prefs:
-            if '@language' in p and p['@language'] in ['en', 'en-us']:
-                label = p['@value']
-                self.aat_labels[what] = label
-                break
-        return label
+
+        if not 'identified_by' in aatjs:
+            return ""
+        names = aatjs['identified_by']
+        for n in names:
+            if 'classified_as' in n:
+                if "http://vocab.getty.edu/term/type/Descriptor" in [x['id'] for x in n['classified_as'] if 'id' in x]:
+                    if 'language' in n and 'en' in [x['_label'] for x in n['language'] if '_label' in x]:
+                        label = n['content']
+                        self.aat_labels[what] = label
+                        return label
+        return ""
 
     def do_aatlabel(self, source):        
         full = source.group(0)
