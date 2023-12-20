@@ -454,9 +454,9 @@ title: Index of Classes, Properties, Authorities
             eg = self.generate_example(h[1], page)
             markdown = markdown.replace(h[0], eg)
 
-        # json-ld context tooltips
-        markdown = self.ctxt_eg_re.sub(self.do_ctxt_eg, markdown)
-        markdown = self.ctxt_text_re.sub(self.do_ctxt_text, markdown)
+            # json-ld context tooltips
+            markdown = self.ctxt_eg_re.sub(self.do_ctxt_eg, markdown)
+            markdown = self.ctxt_text_re.sub(self.do_ctxt_text, markdown)
         return markdown
 
 
