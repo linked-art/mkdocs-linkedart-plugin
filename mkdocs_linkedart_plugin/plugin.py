@@ -293,11 +293,12 @@ title: Index of Classes, Properties, Authorities
             uri = uri.replace('/', ':')
         elif uri.startswith('https://linked.art/example/'):
             uri = uri.replace('https://linked.art/example/', '')
-            uri = uri.replace('/', '')
+            # uri = uri.replace('/', '')
         elif uri.startswith('http://qudt.org/1.1/vocab/unit/'):
             uri = uri.replace('http://qudt.org/1.1/vocab/unit/', 'qudt:')
         else:
-            print("Unhandled URI: %s" % uri)
+            # print("Unhandled URI: %s" % uri)
+            pass
         return uri
 
     def walk(self, js, curr_int, id_map, mermaid):
