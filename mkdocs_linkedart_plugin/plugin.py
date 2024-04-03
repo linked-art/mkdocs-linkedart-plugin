@@ -213,9 +213,9 @@ title: Index of Classes, Properties, Authorities
         raw = top.id
         jsuri = raw + '.json'
         rawq = urllib.parse.quote(raw).replace('/', '%2F')
-        playground = "http://json-ld.org/playground-dev/#startTab=tab-expanded&copyContext=true&json-ld=%s" % rawq
+        playground = "http://json-ld.org/playground-dev/#startTab=tab-expanded&copyContext=true&json-ld=%s" % jsuri
         turtle = raw + '.ttl'
-        turtle_play = "http://cdn.rawgit.com/niklasl/ldtr/v0.2.2/demo/?edit=true&url=%s" % turtle
+        turtle_play = "https://niklasl.github.io/ldtr/demo/?edit=true&url=%s" % turtle
         links = f"[JSON-LD (raw)]({raw}) | [JSON-LD (playground)]({playground}) | [Turtle (raw)]({turtle}) | [Turtle (styled)]({turtle_play})"
 
         return f"{jsstr}\n```mermaid\n{mmd}\n```\nOther Representations: {links}"
