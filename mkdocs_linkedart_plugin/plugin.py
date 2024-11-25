@@ -27,7 +27,12 @@ class LinkedArtPlugin(BasePlugin):
     config_scheme = (
         ("baseUrl", config_options.Type(str, default="https://linked.art/example/")),
         ("baseDir", config_options.Type(str, default="docs/example")),
-        ("contextUrl", config_options.Type(str, default="https://linked.art/ns/v1/linked-art.json")),
+        (
+            "contextUrl",
+            config_options.Type(
+                str, default="https://linked.art/ns/v1/linked-art.json"
+            ),
+        ),
         ("autoIdType", config_options.Type(str, default="int-per-segment")),
         ("linkAAT", config_options.Type(bool, default=True)),
     )
@@ -95,6 +100,7 @@ class LinkedArtPlugin(BasePlugin):
             "DigitalService": "digital",
             "Addition": "event",
             "Removal": "event",
+            "Transfer": "event",
         }
 
     def on_pre_build(self, config):
@@ -123,6 +129,10 @@ class LinkedArtPlugin(BasePlugin):
 
     def on_post_build(self, config):
         # Write the index
+
+        ### This isn't working, dropping it for now
+        return
+
         top = """---
 title: Index of Classes, Properties, Authorities
 ---
@@ -161,7 +171,9 @@ title: Index of Classes, Properties, Authorities
         for k, v in its:
             if not k.startswith("aat:"):
                 continue
-            lines.append("* __%s__: _%s_" % (k, aat_labels.get(k) or fetch_aat_label(k)))
+            lines.append(
+                "* __%s__: _%s_" % (k, aat_labels.get(k) or fetch_aat_label(k))
+            )
             lv = []
             for k2, v2 in v.items():
                 n = k2.replace("https://linked.art/example/", "")
@@ -171,18 +183,32 @@ title: Index of Classes, Properties, Authorities
 
         out = "\n".join(lines)
         try:
+            try:
+                os.mkdir("temp")
+            except Exception:
+                pass
+            try:
+                os.mkdir("temp/model")
+            except Exception:
+                pass
             fh = open("temp/model/example_index.md", "w")
             fh.write(out)
             fh.close()
 
             # build a single page, per mkdocs.commands.build
-            fl = File("model/example_index.md", "temp", config["site_dir"], config["use_directory_urls"])
+            fl = File(
+                "model/example_index.md",
+                "temp",
+                config["site_dir"],
+                config["use_directory_urls"],
+            )
             files = Files([fl])
             pg = Page("Example Index", fl, config)
             _populate_page(fl.page, config, [fl], False)
             _build_page(fl.page, config, [fl], self.nav_cache, self.env_cache, True)
         except:
             print("Failed to write / build example page")
+            raise
 
         return
 
@@ -210,7 +236,10 @@ title: Index of Classes, Properties, Authorities
         raw = top.id
         jsuri = raw + ".json"
         rawq = urllib.parse.quote(raw).replace("/", "%2F")
-        playground = "http://json-ld.org/playground-dev/#startTab=tab-expanded&copyContext=true&json-ld=%s" % jsuri
+        playground = (
+            "http://json-ld.org/playground-dev/#startTab=tab-expanded&copyContext=true&json-ld=%s"
+            % jsuri
+        )
         turtle = raw + ".ttl"
         turtle_play = "https://niklasl.github.io/ldtr/demo/?edit=true&url=%s" % turtle
         links = f"[JSON-LD (raw)]({raw}) | [JSON-LD (playground)]({playground}) | [Turtle (raw)]({turtle}) | [Turtle (styled)]({turtle_play})"
@@ -336,7 +365,9 @@ title: Index of Classes, Properties, Authorities
                 elif isinstance(v, list):
                     for vi in v:
                         if isinstance(vi, dict) or isinstance(vi, OrderedDict):
-                            (rng, curr_int, id_map) = self.walk(vi, curr_int, id_map, mermaid)
+                            (rng, curr_int, id_map) = self.walk(
+                                vi, curr_int, id_map, mermaid
+                            )
                             mermaid.append("%s-- %s -->%s" % (currid, k, rng))
                         else:
                             print("Iterating a list and found %r" % vi)
@@ -370,8 +401,12 @@ title: Index of Classes, Properties, Authorities
         names = aatjs["identified_by"]
         for n in names:
             if "classified_as" in n:
-                if "http://vocab.getty.edu/term/type/Descriptor" in [x["id"] for x in n["classified_as"] if "id" in x]:
-                    if "language" in n and "en" in [x["_label"] for x in n["language"] if "_label" in x]:
+                if "http://vocab.getty.edu/term/type/Descriptor" in [
+                    x["id"] for x in n["classified_as"] if "id" in x
+                ]:
+                    if "language" in n and "en" in [
+                        x["_label"] for x in n["language"] if "_label" in x
+                    ]:
                         label = n["content"]
                         self.aat_labels[what] = label
                         return label
@@ -437,7 +472,10 @@ title: Index of Classes, Properties, Authorities
                     return full
         else:
             return full
-        val = '<abbr %s data-ot="%s" data-ot-title="%s" data-ot-fixed="true">%s</abbr>' % (col, crm, ttl, full)
+        val = (
+            '<abbr %s data-ot="%s" data-ot-title="%s" data-ot-fixed="true">%s</abbr>'
+            % (col, crm, ttl, full)
+        )
         return val
 
     def on_page_markdown(self, markdown, page, config, files):
