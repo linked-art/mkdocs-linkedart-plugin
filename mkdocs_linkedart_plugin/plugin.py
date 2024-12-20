@@ -42,9 +42,6 @@ class LinkedArtPlugin(BasePlugin):
         self.total_time = 0
         factory.id_type_label = True
         factory.auto_assign_id = False
-        self.aat_hash = {}
-        self.prop_hash = {}
-        self.class_hash = {}
         self.aat_labels = {}
 
         self.aat_re = re.compile("aat:([0-9]+)")
@@ -107,10 +104,6 @@ class LinkedArtPlugin(BasePlugin):
         factory.base_url = self.config["baseUrl"]
         factory.auto_id_type = self.config["autoIdType"]
         factory.base_dir = self.config["baseDir"]
-        self.aat_hash = {}
-        self.prop_hash = {}
-        self.class_hash = {}
-
         self.nav_cache = None
         self.env_cache = None
 
@@ -126,91 +119,6 @@ class LinkedArtPlugin(BasePlugin):
         d = fh.read()
         fh.close()
         self.linked_art_profile = json.loads(d)
-
-    def on_post_build(self, config):
-        # Write the index
-
-        ### This isn't working, dropping it for now
-        return
-
-        top = """---
-title: Index of Classes, Properties, Authorities
----
-
-
-"""
-        lines = [top]
-
-        lines.append("## Class Index")
-        its = list(self.class_hash.items())
-        its.sort()
-        for k, v in its:
-            lines.append("* __`%s`__" % k)
-            lv = []
-            for k2, v2 in v.items():
-                n = k2.replace("https://linked.art/example/", "")
-                lv.append("[%s](%s)" % (n, v2.abs_url + "#" + n.replace("/", "_")))
-            vstr = " | ".join(lv)
-            lines.append("    * %s" % vstr)
-
-        lines.append("\n## Property Index")
-        its = list(self.prop_hash.items())
-        its.sort()
-        for k, v in its:
-            lines.append("* __`%s`__" % k)
-            lv = []
-            for k2, v2 in v.items():
-                n = k2.replace("https://linked.art/example/", "")
-                lv.append("[%s](%s)" % (n, v2.abs_url + "#" + n.replace("/", "_")))
-            vstr = " | ".join(lv)
-            lines.append("    * %s" % vstr)
-
-        lines.append("\n## AAT Index")
-        its = list(self.aat_hash.items())
-        its.sort()
-        for k, v in its:
-            if not k.startswith("aat:"):
-                continue
-            lines.append(
-                "* __%s__: _%s_" % (k, aat_labels.get(k) or fetch_aat_label(k))
-            )
-            lv = []
-            for k2, v2 in v.items():
-                n = k2.replace("https://linked.art/example/", "")
-                lv.append("[%s](%s)" % (n, v2.abs_url + "#" + n.replace("/", "_")))
-            vstr = " | ".join(lv)
-            lines.append("    * %s" % vstr)
-
-        out = "\n".join(lines)
-        try:
-            try:
-                os.mkdir("temp")
-            except Exception:
-                pass
-            try:
-                os.mkdir("temp/model")
-            except Exception:
-                pass
-            fh = open("temp/model/example_index.md", "w")
-            fh.write(out)
-            fh.close()
-
-            # build a single page, per mkdocs.commands.build
-            fl = File(
-                "model/example_index.md",
-                "temp",
-                config["site_dir"],
-                config["use_directory_urls"],
-            )
-            files = Files([fl])
-            pg = Page("Example Index", fl, config)
-            _populate_page(fl.page, config, [fl], False)
-            _build_page(fl.page, config, [fl], self.nav_cache, self.env_cache, True)
-        except:
-            print("Failed to write / build example page")
-            raise
-
-        return
 
     def generate_example(self, code, page):
         code = "global top\nfrom cromulent import model, vocab\n" + code
@@ -231,7 +139,7 @@ title: Index of Classes, Properties, Authorities
         # Generate other syntaxes, now in crom
         ttl = factory.toFile(top, format="ttl", extension=".ttl")
         mmd = self.build_mermaid(js)
-        self.traverse(js, top.id, page)
+        # self.traverse(js, top.id, page)
 
         raw = top.id
         jsuri = raw + ".json"
@@ -245,52 +153,6 @@ title: Index of Classes, Properties, Authorities
         links = f"[JSON-LD (raw)]({raw}) | [JSON-LD (playground)]({playground}) | [Turtle (raw)]({turtle}) | [Turtle (styled)]({turtle_play})"
 
         return f"{jsstr}\n```mermaid\n{mmd}\n```\nOther Representations: {links}"
-
-    def traverse(self, what, top, page):
-        for k, v in what.items():
-            if k == "type":
-                which = "class_hash"
-                nv = v
-            elif k == "classified_as":
-                which = "aat_hash"
-                nv = v
-            elif k == "id":
-                if v.startswith("aat:"):
-                    which = "aat_hash"
-                    nv = v
-                else:
-                    continue
-            elif k == "@context":
-                continue
-            else:
-                which = "prop_hash"
-                nv = k
-
-            h = getattr(self, which)
-            if type(nv) == list:
-                for t in nv:
-                    if type(t) == dict or isinstance(t, OrderedDict):
-                        t = t["id"]
-                    try:
-                        h[t][top] = page
-                    except:
-                        h[t] = {top: page}
-            else:
-                if type(nv) == dict or isinstance(nv, OrderedDict):
-                    nv = nv["id"]
-                try:
-                    h[nv][top] = page
-                except:
-                    h[nv] = {top: page}
-
-            # And now recurse
-            if which == "prop_hash":
-                if type(v) == dict or isinstance(v, OrderedDict):
-                    self.traverse(v, top, page)
-                elif type(v) == list:
-                    for x in v:
-                        if type(v) == dict or isinstance(v, OrderedDict):
-                            self.traverse(x, top, page)
 
     def build_mermaid(self, js):
         curr_int = 1
@@ -483,7 +345,7 @@ title: Index of Classes, Properties, Authorities
         markdown = self.aat_re.sub(self.do_aatlabel, markdown)
 
         # Do linked art extension here
-        matcher = re.compile("^(```\s*crom\s*$(.+?)^```)$", re.M | re.U | re.S)
+        matcher = re.compile("^(```[ ]*crom[ ]*$(.+?)^```)$", re.M | re.U | re.S)
         hits = matcher.findall(markdown)
         for h in hits:
             eg = self.generate_example(h[1], page)
