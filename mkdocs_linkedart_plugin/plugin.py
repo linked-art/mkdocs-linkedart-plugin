@@ -1,21 +1,20 @@
-from mkdocs.config import config_options, Config
-from mkdocs.plugins import BasePlugin
-from mkdocs.structure.files import Files, File
-from mkdocs.structure.pages import Page
-from mkdocs.commands.build import _populate_page, _build_page
-
-import re
-import os
-import sys
 import json
-import uuid
+import os
+import re
+import sys
 import urllib
-import requests
+import uuid
+from collections import OrderedDict
 
 import cromulent
+import requests
 from cromulent import model, vocab
 from cromulent.model import factory
-from collections import OrderedDict
+from mkdocs.commands.build import _build_page, _populate_page
+from mkdocs.config import Config, config_options
+from mkdocs.plugins import BasePlugin
+from mkdocs.structure.files import File, Files
+from mkdocs.structure.pages import Page
 
 vocab.add_art_setter()
 vocab.add_attribute_assignment_check()
@@ -128,6 +127,8 @@ class LinkedArtPlugin(BasePlugin):
             print(f">>> In {page}, got: {e}")
             print(code)
             raise
+
+        print(f"Making example: {top.id}")
 
         factory.pipe_scoped_contexts = False
         factory.toFile(top, compact=False)
@@ -250,6 +251,7 @@ class LinkedArtPlugin(BasePlugin):
             return (currid, curr_int, id_map)
 
     def fetch_aat_label(self, what):
+        print(f"Fetching AAT label for {what}")
         url = what.replace("aat:", "http://vocab.getty.edu/aat/")
         url += ".jsonld"
         try:
@@ -279,7 +281,7 @@ class LinkedArtPlugin(BasePlugin):
         if not self.config["linkAAT"]:
             return full
         data = source.group(1)
-        label = self.aat_labels.get(full) or self.fetch_aat_label(full)
+        label = self.aat_labels.get(full) or ""  # or self.fetch_aat_label(full)
         label = label.replace('"', "")
         return (
             '<a href="http://vocab.getty.edu/aat/%s" data-ot="%s" data-ot-title="AAT Term" data-ot-fixed="true" class="aat">aat:%s</a>'
